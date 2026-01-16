@@ -1,0 +1,12 @@
+{
+  "limit": 10000,
+  "interval": "d",
+  "start_date": "2020-01-01",
+  "website_url": "www.reddit.com",
+  "reddits_folder_pattern": "jsons/reddits/{phrase}",
+  "authors_folder_pattern": "jsons/authors/phrase",
+  "reddits_file_pattern": "reddits_{phrase}_{{start_date}}_{{end_date}}.json",
+  "authors_file_pattern": "authors_{phrase}_{{start_date}}_{{end_date}}.json",
+  "is_author_downloaded": false,
+  "is_date_to_previous_day": false
+}
