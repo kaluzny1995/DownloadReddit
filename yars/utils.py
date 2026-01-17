@@ -1,7 +1,6 @@
 import os
 import csv
 import json
-import logging
 
 import requests
 import datetime as dt
@@ -9,10 +8,11 @@ from dateutil.relativedelta import relativedelta
 from urllib.parse import urlparse
 from pygments import formatters, highlight, lexers
 
+from utils import setup_logger
 
-logging.basicConfig(
-    level=logging.INFO, filename="YARS.log", format="%(asctime)s - %(message)s"
-)
+
+logger = setup_logger(name="yars",
+                      log_file=f"logs/yars/YARS_utils_{dt.datetime.now().isoformat()}.log")
 
 
 def display_results(results, title):
@@ -39,14 +39,14 @@ def display_results(results, title):
             )
             print(colorful_json)
         else:
-            logging.warning(
+            logger.warning(
                 "No results to display: expected a list or dictionary, got %S",
                 type(results),
             )
             print("No results to display.")
 
     except Exception as e:
-        logging.error(f"Error displaying results: {e}")
+        logger.error(f"Error displaying results: {e}")
         print("Error displaying results.")
 
 
@@ -66,13 +66,13 @@ def download_image(image_url, output_folder="images", session=None):
         with open(filepath, "wb") as f:
             for chunk in response.iter_content(8192):
                 f.write(chunk)
-        logging.info("Downloaded: %s", filepath)
+        logger.info("Downloaded: %s", filepath)
         return filepath
     except requests.RequestException as e:
-        logging.error("Failed to download %s: %s", image_url, e)
+        logger.error("Failed to download %s: %s", image_url, e)
         return None
     except Exception as e:
-        logging.error("An error occurred while saving the image: %s", e)
+        logger.error("An error occurred while saving the image: %s", e)
         return None
 
 

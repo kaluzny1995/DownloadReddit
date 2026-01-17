@@ -1,19 +1,17 @@
 from __future__ import annotations
 from .sessions import RandomUserAgentSession
 import time
+import datetime as dt
 import random
-import logging
 import requests
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
 
-from .utils import display_results
+from utils import setup_logger
 
-logger = logging.basicConfig(
-    filename="YARS.log",
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
+
+logger = setup_logger(name="yars",
+                      log_file=f"logs/yars/YARS_{dt.datetime.now().isoformat()}.log")
 
 
 class YARS:
@@ -43,10 +41,10 @@ class YARS:
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
             response.raise_for_status()
-            logging.info("Search request successful")
+            logger.info("Search request successful")
         except Exception as e:
             if response.status_code != 200:
-                logging.info("Search request unsuccessful due to: %s", e)
+                logger.info("Search request unsuccessful due to: %s", e)
                 print(f"Failed to fetch search results: {response.status_code}")
                 return []
 
@@ -64,7 +62,7 @@ class YARS:
                     "created_utc": post_data.get("created_utc", 0.),
                 }
             )
-        logging.info("Search Results Returned %d Results", len(results))
+        logger.info("Search Results Returned %d Results", len(results))
         return results
     def search_reddit(self, query, limit=10, after=None, before=None):
         url = "https://www.reddit.com/search.json"
@@ -81,16 +79,16 @@ class YARS:
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
-            logging.info("Post details request successful : %s", url)
+            logger.info("Post details request successful : %s", url)
         except Exception as e:
-            logging.info("Post details request unsccessful: %e", e)
+            logger.info("Post details request unsccessful: %e", e)
             if response.status_code != 200:
                 print(f"Failed to fetch post data: {response.status_code}")
                 return None
 
         post_data = response.json()
         if not isinstance(post_data, list) or len(post_data) < 2:
-            logging.info("Unexpected post data structre")
+            logger.info("Unexpected post data structre")
             print("Unexpected post data structure")
             return None
 
@@ -105,7 +103,7 @@ class YARS:
         created_utc = main_post.get("created_utc", 0.)
         comments = self._extract_comments(post_data[1]["data"]["children"])
 
-        logging.info("Successfully scraped post: %s", title)
+        logger.info("Successfully scraped post: %s", title)
         return {
             "id": entry_id,
             "name": name,
@@ -128,7 +126,7 @@ class YARS:
         }
 
     def _extract_comments(self, comments):
-        logging.info("Extracting comments")
+        logger.info("Extracting comments")
         extracted_comments = []
         for comment in comments:
             if isinstance(comment, dict) and comment.get("kind") == "t1":
@@ -161,11 +159,11 @@ class YARS:
                         replies.get("data", {}).get("children", [])
                     )
                 extracted_comments.append(extracted_comment)
-        logging.info("Successfully extracted comments")
+        logger.info("Successfully extracted comments")
         return extracted_comments
 
     def scrape_user_data(self, username, limit=10):
-        logging.info("Scraping user data for %s, limit: %d", username, limit)
+        logger.info("Scraping user data for %s, limit: %d", username, limit)
         base_url = f"https://www.reddit.com/user/{username}/.json"
         params = {"limit": limit, "after": None}
         all_items = []
@@ -179,9 +177,9 @@ class YARS:
                 )
                 response.raise_for_status()
 
-                logging.info("User data request successful")
+                logger.info("User data request successful")
             except Exception as e:
-                logging.info("User data request unsuccessful: %s", e)
+                logger.info("User data request unsuccessful: %s", e)
                 if response is not None:
                     if response.status_code != 200:
                         print(f"Failed to fetch data for user {username}: {response.status_code}")
@@ -198,13 +196,13 @@ class YARS:
                 print(
                     f"No 'data' or 'children' field found in response for user {username}."
                 )
-                logging.info("No 'data' or 'children' field found in response")
+                logger.info("No 'data' or 'children' field found in response")
                 break
 
             items = data["data"]["children"]
             if not items:
                 print(f"No more items found for user {username}.")
-                logging.info("No more items found for user")
+                logger.info("No more items found for user")
                 break
 
             for item in items:
@@ -269,15 +267,15 @@ class YARS:
                 break
 
             time.sleep(random.uniform(1, 2))
-            logging.info("Sleeping for random time")
+            logger.info("Sleeping for random time")
 
-        logging.info("Successfully scraped user data for %s", username)
+        logger.info("Successfully scraped user data for %s", username)
         return all_items
 
     def fetch_subreddit_posts(
         self, subreddit, limit=10, category="hot", time_filter="all"
     ):
-        logging.info(
+        logger.info(
             "Fetching subreddit/user posts for %s, limit: %d, category: %s, time_filter: %s",
             subreddit,
             limit,
@@ -315,9 +313,9 @@ class YARS:
             try:
                 response = self.session.get(url, params=params, timeout=self.timeout)
                 response.raise_for_status()
-                logging.info("Subreddit/user posts request successful")
+                logger.info("Subreddit/user posts request successful")
             except Exception as e:
-                logging.info("Subreddit/user posts request unsuccessful: %s", e)
+                logger.info("Subreddit/user posts request unsuccessful: %s", e)
                 if response.status_code != 200:
                     print(
                         f"Failed to fetch posts for subreddit/user {subreddit}: {response.status_code}"
@@ -358,7 +356,7 @@ class YARS:
                 break
 
             time.sleep(random.uniform(1, 2))
-            logging.info("Sleeping for random time")
+            logger.info("Sleeping for random time")
 
-        logging.info("Successfully fetched subreddit posts for %s", subreddit)
+        logger.info("Successfully fetched subreddit posts for %s", subreddit)
         return all_posts

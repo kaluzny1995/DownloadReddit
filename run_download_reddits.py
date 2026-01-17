@@ -5,7 +5,12 @@ import datetime as dt
 from typing import List
 from tqdm import tqdm
 
+from utils import setup_logger
 from yars import YARS, date_range, export_to_json
+
+
+logger = setup_logger(name="download_reddits",
+                      log_file=f"logs/download_reddits/download_reddits_{dt.datetime.now().isoformat()}.log")
 
 
 def get_config(file_name: str) -> dict[str, int | str | object]:
@@ -68,6 +73,7 @@ def save_jsons(jsons: List[dict[str, object]], output_folder: str, output_file_p
     output_json_file = f"{output_folder}/{output_file}"
     export_to_json(jsons, filename=output_json_file)
     print(f"File {output_json_file} saved.")
+    logger.info(f"File {output_json_file} saved.")
 
 
 def main():
@@ -117,6 +123,7 @@ def main():
 
     # Getting posts headers
     print(f"Searching reddits with phrase '{phrase}'.\n")
+    logger.info(f"Searching reddits with phrase '{phrase}'.")
     reddit_headers = downloader.search_reddit(query=phrase, limit=limit)
 
     # Restriction to the newest only for INCREMENTAL load
@@ -126,10 +133,15 @@ def main():
     # Getting posts details
     permalinks = list(map(lambda rh: rh['link'].split(website_url)[1], reddit_headers))
     print(f"Found {len(permalinks)} results.")
+    logger.info(f"Found {len(permalinks)} results.")
     if len(permalinks) == 0:
-        raise Exception("No new reddits available.")
+        logger.info("No new reddits found. Finishing.")
+        raise Exception("No new reddits available. Finishing.")
+
     print("Downloading reddits:")
+    logger.info("Downloading reddits.")
     reddit_details = list(map(lambda p: downloader.scrape_post_details(p), tqdm(permalinks)))
+    logger.info("Reddit details downloaded.")
 
     # Saving into separate jsons
     for sd, ed in date_range(date_from, date_to, interval=date_interval):
@@ -143,13 +155,16 @@ def main():
             # Getting posts authors
             authors = collect_authors(reddits_interval)
             print(f"\nFound {len(authors)} different authors for period {sd} -- {ed}.")
+            logger.info(f"Found {len(authors)} different authors for period {sd} -- {ed}.")
             print(f"Downloading authors details for period {sd} -- {ed}")
+            logger.info(f"Downloading authors details for period {sd} -- {ed}")
             author_details = list(map(lambda a: downloader.scrape_user_data(a, limit=1), tqdm(authors)))
 
             # Saving authors details into json file
             save_jsons(author_details, output_authors_folder, output_authors_file_pattern, sd, ed)
 
     print("\nDone.")
+    logger.info("Done.")
 
 
 if __name__ == "__main__":
