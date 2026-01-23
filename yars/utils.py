@@ -113,8 +113,10 @@ def export_to_json(data, filename="output.json"):
     try:
         with open(filename, "w", encoding="utf-8") as json_file:
             json.dump(data, json_file, indent=4)
+        logger.info(f"Data successfully exported to {filename}")
         print(f"Data successfully exported to {filename}")
     except Exception as e:
+        logger.info(f"Error exporting to JSON: {e}")
         print(f"Error exporting to JSON: {e}")
 
 
@@ -125,6 +127,8 @@ def export_to_csv(data, filename="output.csv"):
             dict_writer = csv.DictWriter(output_file, fieldnames=keys)
             dict_writer.writeheader()
             dict_writer.writerows(data)
+        logger.info(f"Data successfully exported to {filename}")
         print(f"Data successfully exported to {filename}")
     except Exception as e:
+        logger.info(f"Error exporting to CSV: {e}")
         print(f"Error exporting to CSV: {e}")

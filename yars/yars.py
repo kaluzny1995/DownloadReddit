@@ -45,7 +45,6 @@ class YARS:
         except Exception as e:
             if response.status_code != 200:
                 logger.info("Search request unsuccessful due to: %s", e)
-                print(f"Failed to fetch search results: {response.status_code}")
                 return []
 
         data = response.json()
@@ -76,20 +75,24 @@ class YARS:
     def scrape_post_details(self, permalink):
         url = f"https://www.reddit.com{permalink}.json"
 
+        response = None
         try:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
             logger.info("Post details request successful : %s", url)
         except Exception as e:
             logger.info("Post details request unsccessful: %e", e)
-            if response.status_code != 200:
-                print(f"Failed to fetch post data: {response.status_code}")
-                return None
+            if response is not None:
+                if response.status_code != 200:
+                    logger.error(f"Failed to fetch post data: {response.status_code}")
+                    return None
+            else:
+                logger.error(f"Failed to fetch post data: {e}")
 
         post_data = response.json()
         if not isinstance(post_data, list) or len(post_data) < 2:
             logger.info("Unexpected post data structre")
-            print("Unexpected post data structure")
+            logger.error("Unexpected post data structure")
             return None
 
         main_post = post_data[0]["data"]["children"][0]["data"]
@@ -182,26 +185,24 @@ class YARS:
                 logger.info("User data request unsuccessful: %s", e)
                 if response is not None:
                     if response.status_code != 200:
-                        print(f"Failed to fetch data for user {username}: {response.status_code}")
+                        logger.error(f"Failed to fetch data for user {username}: {response.status_code}")
                 else:
-                    print(f"Failed to fetch data for user {username}: {e}")
+                    logger.error(f"Failed to fetch data for user {username}: {e}")
                 break
             try:
                 data = response.json()
             except ValueError:
-                print(f"Failed to parse JSON response for user {username}.")
+                logger.error(f"Failed to parse JSON response for user {username}.")
                 break
 
             if "data" not in data or "children" not in data["data"]:
-                print(
-                    f"No 'data' or 'children' field found in response for user {username}."
-                )
+                logger.error(f"No 'data' or 'children' field found in response for user {username}.")
                 logger.info("No 'data' or 'children' field found in response")
                 break
 
             items = data["data"]["children"]
             if not items:
-                print(f"No more items found for user {username}.")
+                logger.error(f"No more items found for user {username}.")
                 logger.info("No more items found for user")
                 break
 
@@ -310,17 +311,19 @@ class YARS:
                 "raw_json": 1,
                 "t": time_filter,
             }
+            response = None
             try:
                 response = self.session.get(url, params=params, timeout=self.timeout)
                 response.raise_for_status()
                 logger.info("Subreddit/user posts request successful")
             except Exception as e:
                 logger.info("Subreddit/user posts request unsuccessful: %s", e)
-                if response.status_code != 200:
-                    print(
-                        f"Failed to fetch posts for subreddit/user {subreddit}: {response.status_code}"
-                    )
-                    break
+                if response is not None:
+                    if response.status_code != 200:
+                        logger.info(f"Failed to fetch posts for subreddit/user {subreddit}: {response.status_code}")
+                        break
+                else:
+                    logger.info(f"Failed to fetch posts for subreddit/user: {subreddit}: {e}")
 
             data = response.json()
             posts = data["data"]["children"]

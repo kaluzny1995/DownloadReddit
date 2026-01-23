@@ -54,7 +54,7 @@ def get_recent_file_date(jsons_folder: str) -> dt.datetime | None:
 
 
 def collect_authors(reddit_jsons: List[dict[str, object | List[dict[str, object]]]]) -> List[str]:
-    """ Returns a unique list of all found authors of given reddits and inner subreddits json """
+    """ Returns a unique list of all found authors of given reddits and inner subreddits JSON """
     authors = list([])
 
     for reddit_json in reddit_jsons:
@@ -85,7 +85,7 @@ def main():
     phrase = args.phrase
     limit = args.limit
     date_interval = args.interval
-    default_start_date = args.start_date
+    default_start_date = dt.datetime.strptime(args.start_date, "%Y-%m-%d")
     is_author_downloaded = args.download_authors
     is_date_to_previous_day = args.previous_day
 
@@ -113,7 +113,8 @@ def main():
     recent_date = get_recent_file_date(output_reddits_folder)
     load_type = "HISTORICAL" if recent_date is None else "INCREMENTAL"
     date_from = default_start_date if recent_date is None else recent_date
-    date_to = dt.datetime.now() if not is_date_to_previous_day else dt.datetime.now() - dt.timedelta(days=1)
+    date_to = dt.datetime.now() if not is_date_to_previous_day \
+        else dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - dt.timedelta(seconds=1)
 
     print("Load type:", load_type)
     print("Start date:", date_from)
@@ -143,12 +144,12 @@ def main():
     reddit_details = list(map(lambda p: downloader.scrape_post_details(p), tqdm(permalinks)))
     logger.info("Reddit details downloaded.")
 
-    # Saving into separate jsons
+    # Saving into separate JSONs
     for sd, ed in date_range(date_from, date_to, interval=date_interval):
         # Filtering reddits details by dates interval
         reddits_interval = filter_reddits_by_dates(reddit_details, sd, ed)
 
-        # Saving reddits details into json file
+        # Saving reddits details into JSON file
         save_jsons(reddits_interval, output_reddits_folder, output_reddits_file_pattern, sd, ed)
 
         if is_author_downloaded:
@@ -160,7 +161,7 @@ def main():
             logger.info(f"Downloading authors details for period {sd} -- {ed}")
             author_details = list(map(lambda a: downloader.scrape_user_data(a, limit=1), tqdm(authors)))
 
-            # Saving authors details into json file
+            # Saving authors details into JSON file
             save_jsons(author_details, output_authors_folder, output_authors_file_pattern, sd, ed)
 
     print("\nDone.")
