@@ -1,16 +1,18 @@
+import multiprocessing
 import os
 import argparse
 import json
 import datetime as dt
+from multiprocessing import Queue
 from typing import List
 from tqdm import tqdm
 
-from utils import setup_logger
+import utils
 from yars import YARS, date_range, export_to_json
 
 
-logger = setup_logger(name="download_reddits",
-                      log_file=f"logs/download_reddits/download_reddits_{dt.datetime.now().isoformat()}.log")
+logger = utils.setup_logger(name="download_reddits",
+                            log_file=f"logs/download_reddits/download_reddits_{dt.datetime.now().isoformat()}.log")
 
 
 def get_config(file_name: str) -> dict[str, int | str | object]:
@@ -21,6 +23,7 @@ def get_config(file_name: str) -> dict[str, int | str | object]:
 
 
 def parse_args(defaults: dict[str, int | str | object]) -> argparse.Namespace:
+    """ Parses command line arguments """
     parser = argparse.ArgumentParser(description="Reddits downloader Python 3.11 application.")
 
     parser.add_argument("phrase", type=str, help="phrase to search for reddits")
@@ -36,35 +39,61 @@ def parse_args(defaults: dict[str, int | str | object]) -> argparse.Namespace:
     parser.add_argument("--previous_day", required=False, default=defaults['is_date_to_previous_day'],
                         help=f"flag whether to download reddits till the previous day, default: {defaults['is_date_to_previous_day']}",
                         action="store_true")
+    parser.add_argument("--use_multiprocessing", required=False, default=defaults['is_multiprocessing_used'],
+                        help=f"flag whether to use multiprocessing while downlading reddits and authors, default: {defaults['is_multiprocessing_used']}",
+                        action="store_true")
+    parser.add_argument("--num_processes", type=int, required=False, default=defaults['num_processes'],
+                        help=f"number of processes if multiprocessing is used, default: {defaults['num_processes']}")
 
     return parser.parse_args()
 
 
-def filter_reddits_by_dates(reddit_jsons: List[dict[str, object]],
-                            start_date: dt.datetime, end_date: dt.datetime = None) -> List[dict[str, object]]:
-    """ Filters the provided reddits JSON by provided dates interval """
-    return list(filter(lambda rj: end_date > dt.datetime.fromtimestamp(rj['created_utc']) >= start_date, reddit_jsons))
+def _download_reddits_details(downloader: YARS, permalinks: List[str], num: int, queue: Queue) -> None:
+    """ Partially downloads reddits details (utilizes multiprocessing) """
+    print(f"P{num + 1}: Starting downloading reddits details.")
+    logger.info(f"P{num + 1}: Starting downloading reddits details.")
+
+    details = list([])
+    for i, permalink in enumerate(permalinks):
+        result = downloader.scrape_post_details(permalink)
+        if isinstance(result, dict):
+            details.append(result)
+        else:
+            print(f"P{num + 1}: Something went wrong.")
+            logger.warning(f"P{num + 1}: Something went wrong.")
+
+        if len(details) % 10 == 0 and len(details) > 0:
+            print(f"P{num + 1}: Downloaded {len(details)} out of {len(permalinks)} reddits.")
+            logger.info(f"P{num + 1}: Downloaded {len(details)} out of {len(permalinks)} reddits.")
+
+    print(f"P{num + 1}: Finished downloading reddits details. Downloaded: {len(details)}.")
+    logger.info(f"P{num + 1}: Finished downloading reddits details. Downloaded: {len(details)}.")
+
+    queue.put((details, num))
 
 
-def get_recent_file_date(jsons_folder: str) -> dt.datetime | None:
-    """ Returns the latest file date (in order to determine the missing periods for INCREMENTAL load) """
-    file_names = os.listdir(jsons_folder)
-    dates = list(sorted(map(lambda j: dt.datetime.fromisoformat(j.split("_")[-1].split(".")[0]), file_names)))
-    return None if len(dates) == 0 else dates[-1]
+def _download_authors_details(downloader: YARS, names: List[str], num: int, queue: Queue) -> None:
+    """ Partially downloads authors details (utilizes multiprocessing) """
+    print(f"P{num + 1}: Starting downloading authors details.")
+    logger.info(f"P{num + 1}: Starting downloading authors details.")
 
+    details = list([])
+    for i, name in enumerate(names):
+        result = downloader.scrape_user_data(name, limit=1)
+        if isinstance(result, list):
+            details.append(result)
+        else:
+            print(f"P{num + 1}: Something went wrong.")
+            logger.warning(f"P{num + 1}: Something went wrong.")
 
-def collect_authors(reddit_jsons: List[dict[str, object | List[dict[str, object]]]]) -> List[str]:
-    """ Returns a unique list of all found authors of given reddits and inner subreddits JSON """
-    authors = list([])
+        if len(details) % 10 == 0 and len(details) > 0:
+            print(f"P{num + 1}: Downloaded {len(details)} out of {len(names)} authors.")
+            logger.info(f"P{num + 1}: Downloaded {len(details)} out of {len(names)} authors.")
 
-    for reddit_json in reddit_jsons:
-        authors.append(reddit_json['author'])
-        if reddit_json.get("comments", None) is not None and len(reddit_json['comments']) > 0:
-            authors.extend(collect_authors(reddit_json['comments']))
-        elif reddit_json.get("replies", None) is not None and len(reddit_json['replies']) > 0:
-            authors.extend(collect_authors(reddit_json['replies']))
+    print(f"P{num + 1}: Finished downloading authors details. Downloaded: {len(details)}.")
+    logger.info(f"P{num + 1}: Finished downloading authors details. Downloaded: {len(details)}.")
 
-    return list(filter(lambda a: a != "[deleted]", set(authors)))
+    queue.put((details, num))
 
 
 def save_jsons(jsons: List[dict[str, object]], output_folder: str, output_file_pattern: str,
@@ -88,6 +117,8 @@ def main():
     default_start_date = dt.datetime.strptime(args.start_date, "%Y-%m-%d")
     is_author_downloaded = args.download_authors
     is_date_to_previous_day = args.previous_day
+    is_multiprocessing_used = args.use_multiprocessing
+    num_processes = 1 if not is_multiprocessing_used else args.num_processes
 
     website_url = config['website_url']
     output_reddits_folder = config['reddits_folder_pattern'].format(phrase=phrase)
@@ -102,7 +133,9 @@ def main():
     print("Reddits folder:", output_reddits_folder)
     print("Authors folder:", output_authors_folder)
     print("Download author details:", is_author_downloaded)
-    print("Search until previous day:", is_date_to_previous_day, "\n")
+    print("Search until previous day:", is_date_to_previous_day)
+    print("Use multiprocessing:", is_multiprocessing_used)
+    print("Number of processes:", num_processes, "\n")
 
     # Create folders if not exist
     if not os.path.exists(output_reddits_folder):
@@ -110,7 +143,7 @@ def main():
     if not os.path.exists(output_authors_folder):
         os.makedirs(output_authors_folder)
 
-    recent_date = get_recent_file_date(output_reddits_folder)
+    recent_date = utils.get_recent_file_date(output_reddits_folder)
     load_type = "HISTORICAL" if recent_date is None else "INCREMENTAL"
     date_from = default_start_date if recent_date is None else recent_date
     date_to = dt.datetime.now() if not is_date_to_previous_day \
@@ -135,31 +168,65 @@ def main():
     permalinks = list(map(lambda rh: rh['link'].split(website_url)[1], reddit_headers))
     print(f"Found {len(permalinks)} results.")
     logger.info(f"Found {len(permalinks)} results.")
+
     if len(permalinks) == 0:
         logger.info("No new reddits found. Finishing.")
         raise Exception("No new reddits available. Finishing.")
 
-    print("Downloading reddits:")
+    print("Downloading reddits.")
     logger.info("Downloading reddits.")
-    reddit_details = list(map(lambda p: downloader.scrape_post_details(p), tqdm(permalinks)))
-    logger.info("Reddit details downloaded.")
+    # Using multiprocessing only if applicable and number of reddits to download is >= number of processes
+    if is_multiprocessing_used and len(permalinks) >= num_processes:
+        reddit_details = list([])
+        queue = multiprocessing.Queue()
+        for i, chunk in enumerate(utils.chunk_list(permalinks, num_processes)):
+            p = multiprocessing.Process(target=_download_reddits_details, args=(downloader, chunk, i, queue))
+            p.start()
+
+        for i in range(num_processes):
+            results, num = queue.get()
+            if isinstance(results, list):
+                reddit_details.extend(results)
+
+    else:
+        reddit_details = list(map(lambda pl: downloader.scrape_post_details(pl), tqdm(permalinks)))
+    print(f"Reddit details downloaded. Total: {len(reddit_details)}.")
+    logger.info(f"Reddit details downloaded. Total: {len(reddit_details)}.")
+
 
     # Saving into separate JSONs
     for sd, ed in date_range(date_from, date_to, interval=date_interval):
         # Filtering reddits details by dates interval
-        reddits_interval = filter_reddits_by_dates(reddit_details, sd, ed)
+        reddits_interval = utils.filter_reddits_by_dates(reddit_details, sd, ed)
 
         # Saving reddits details into JSON file
         save_jsons(reddits_interval, output_reddits_folder, output_reddits_file_pattern, sd, ed)
 
         if is_author_downloaded:
             # Getting posts authors
-            authors = collect_authors(reddits_interval)
+            authors = utils.collect_authors(reddits_interval)
+
             print(f"\nFound {len(authors)} different authors for period {sd} -- {ed}.")
             logger.info(f"Found {len(authors)} different authors for period {sd} -- {ed}.")
-            print(f"Downloading authors details for period {sd} -- {ed}")
-            logger.info(f"Downloading authors details for period {sd} -- {ed}")
-            author_details = list(map(lambda a: downloader.scrape_user_data(a, limit=1), tqdm(authors)))
+            print(f"Downloading authors details for period {sd} -- {ed}.")
+            logger.info(f"Downloading authors details for period {sd} -- {ed}.")
+            # Using multiprocessing only if applicable and number of authors to download is >= number of processes
+            if is_multiprocessing_used and len(authors) >= num_processes:
+                author_details = list([])
+                queue = multiprocessing.Queue()
+                for i, chunk in enumerate(utils.chunk_list(authors, num_processes)):
+                    p = multiprocessing.Process(target=_download_authors_details, args=(downloader, chunk, i, queue))
+                    p.start()
+
+                for i in range(num_processes):
+                    results, num = queue.get()
+                    if isinstance(results, list):
+                        author_details.extend(results)
+
+            else:
+                author_details = list(map(lambda a: downloader.scrape_user_data(a, limit=1), tqdm(authors)))
+            print(f"Downloading authors details for period {sd} -- {ed} finished.")
+            logger.info(f"Downloading authors details for period {sd} -- {ed} finished.")
 
             # Saving authors details into JSON file
             save_jsons(author_details, output_authors_folder, output_authors_file_pattern, sd, ed)

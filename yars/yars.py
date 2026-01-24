@@ -81,13 +81,14 @@ class YARS:
             response.raise_for_status()
             logger.info("Post details request successful : %s", url)
         except Exception as e:
-            logger.info("Post details request unsccessful: %e", e)
+            logger.info("Post details request unsuccessful: %s", e)
             if response is not None:
                 if response.status_code != 200:
                     logger.error(f"Failed to fetch post data: {response.status_code}")
                     return None
             else:
                 logger.error(f"Failed to fetch post data: {e}")
+                return None
 
         post_data = response.json()
         if not isinstance(post_data, list) or len(post_data) < 2:

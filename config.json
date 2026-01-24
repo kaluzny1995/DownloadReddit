@@ -8,5 +8,7 @@
   "reddits_file_pattern": "reddits_{phrase}_{{start_date}}_{{end_date}}.json",
   "authors_file_pattern": "authors_{phrase}_{{start_date}}_{{end_date}}.json",
   "is_author_downloaded": false,
-  "is_date_to_previous_day": false
+  "is_date_to_previous_day": false,
+  "is_multiprocessing_used": false,
+  "num_processes": 8
 }
