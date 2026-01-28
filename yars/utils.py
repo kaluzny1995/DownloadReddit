@@ -11,11 +11,11 @@ from pygments import formatters, highlight, lexers
 from utils import setup_logger
 
 
-logger = setup_logger(name="yars",
-                      log_file=f"logs/yars/YARS_utils_{dt.datetime.now().isoformat()}.log")
+def display_results(results, title, logger=None):
 
-
-def display_results(results, title):
+    if logger is None:
+        logger = setup_logger(name="yars",
+                              log_file=f"logs/yars/YARS_{dt.datetime.now().isoformat()}.log")
 
     try:
         print(f"\n{'-'*20} {title} {'-'*20}")
@@ -50,7 +50,11 @@ def display_results(results, title):
         print("Error displaying results.")
 
 
-def download_image(image_url, output_folder="images", session=None):
+def download_image(image_url, output_folder="images", session=None, logger=None):
+
+    if logger is None:
+        logger = setup_logger(name="yars",
+                              log_file=f"logs/yars/YARS_{dt.datetime.now().isoformat()}.log")
 
     os.makedirs(output_folder, exist_ok=True)
 
@@ -109,7 +113,11 @@ def date_range(start_date, end_date=None, interval="d"):
 
 
 
-def export_to_json(data, filename="output.json"):
+def export_to_json(data, filename="output.json", logger=None):
+    if logger is None:
+        logger = setup_logger(name="yars",
+                              log_file=f"logs/yars/YARS_{dt.datetime.now().isoformat()}.log")
+
     try:
         with open(filename, "w", encoding="utf-8") as json_file:
             json.dump(data, json_file, indent=4)
@@ -120,7 +128,11 @@ def export_to_json(data, filename="output.json"):
         print(f"Error exporting to JSON: {e}")
 
 
-def export_to_csv(data, filename="output.csv"):
+def export_to_csv(data, filename="output.csv", logger=None):
+    if logger is None:
+        logger = setup_logger(name="yars",
+                              log_file=f"logs/yars/YARS_{dt.datetime.now().isoformat()}.log")
+
     try:
         keys = data[0].keys()
         with open(filename, "w", newline="", encoding="utf-8") as output_file:

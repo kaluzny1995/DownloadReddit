@@ -38,12 +38,17 @@ class YARS:
         if before:
             params["before"] = before
 
+        response = None
         try:
             response = self.session.get(url, params=params, timeout=self.timeout)
             response.raise_for_status()
             logger.info("Search request successful")
         except Exception as e:
-            if response.status_code != 200:
+            if response is not None:
+                if response.status_code != 200:
+                    logger.info("Search request unsuccessful due to: %s", e)
+                    return []
+            else:
                 logger.info("Search request unsuccessful due to: %s", e)
                 return []
 

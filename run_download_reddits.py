@@ -4,7 +4,7 @@ import argparse
 import json
 import datetime as dt
 from multiprocessing import Queue
-from typing import List
+from typing import List, Dict, Any
 from tqdm import tqdm
 
 import utils
@@ -15,14 +15,14 @@ logger = utils.setup_logger(name="download_reddits",
                             log_file=f"logs/download_reddits/download_reddits_{dt.datetime.now().isoformat()}.log")
 
 
-def get_config(file_name: str) -> dict[str, int | str | object]:
+def get_config(file_name: str) -> Dict[str, Any]:
     """ Returns the default application parameters """
     with open(file_name, "r") as f:
         config = json.load(f)
     return config
 
 
-def parse_args(defaults: dict[str, int | str | object]) -> argparse.Namespace:
+def parse_args(defaults: Dict[str, Any]) -> argparse.Namespace:
     """ Parses command line arguments """
     parser = argparse.ArgumentParser(description="Reddits downloader Python 3.11 application.")
 
@@ -96,11 +96,11 @@ def _download_authors_details(downloader: YARS, names: List[str], num: int, queu
     queue.put((details, num))
 
 
-def save_jsons(jsons: List[dict[str, object]], output_folder: str, output_file_pattern: str,
+def save_jsons(jsons: List[Dict[str, Any]], output_folder: str, output_file_pattern: str,
                start_date: dt.datetime, end_date: dt.datetime) -> None:
     output_file = output_file_pattern.format(start_date=start_date.isoformat(), end_date=end_date.isoformat())
     output_json_file = f"{output_folder}/{output_file}"
-    export_to_json(jsons, filename=output_json_file)
+    export_to_json(jsons, filename=output_json_file, logger=logger)
     print(f"File {output_json_file} saved.")
     logger.info(f"File {output_json_file} saved.")
 
@@ -153,6 +153,10 @@ def main():
     print("Start date:", date_from)
     print("End date:", date_to, "\n")
 
+    if date_from > date_to:
+        logger.info("Recent (start) file date is bigger than end date. Nothing to download. Finishing.")
+        raise Exception("Recent (start) file date is bigger than end date. Nothing to download.")
+
     downloader = YARS()
 
     # Getting posts headers
@@ -162,21 +166,17 @@ def main():
 
     # Restriction to the newest only for INCREMENTAL load
     if load_type == "INCREMENTAL":
-        reddit_headers = list(filter(lambda rh: dt.datetime.fromtimestamp(rh['created_utc']) >= date_from, reddit_headers))
+        reddit_headers = list(filter(lambda rh: date_to > dt.datetime.fromtimestamp(rh['created_utc']) >= date_from, reddit_headers))
 
     # Getting posts details
     permalinks = list(map(lambda rh: rh['link'].split(website_url)[1], reddit_headers))
     print(f"Found {len(permalinks)} results.")
     logger.info(f"Found {len(permalinks)} results.")
 
-    if len(permalinks) == 0:
-        logger.info("No new reddits found. Finishing.")
-        raise Exception("No new reddits available. Finishing.")
-
     print("Downloading reddits.")
     logger.info("Downloading reddits.")
-    # Using multiprocessing only if applicable and number of reddits to download is >= number of processes
-    if is_multiprocessing_used and len(permalinks) >= num_processes:
+    # Using multiprocessing only if applicable and number of reddits to download is >= quadratic number of processes
+    if is_multiprocessing_used and len(permalinks) >= num_processes ** 2:
         reddit_details = list([])
         queue = multiprocessing.Queue()
         for i, chunk in enumerate(utils.chunk_list(permalinks, num_processes)):
@@ -210,8 +210,8 @@ def main():
             logger.info(f"Found {len(authors)} different authors for period {sd} -- {ed}.")
             print(f"Downloading authors details for period {sd} -- {ed}.")
             logger.info(f"Downloading authors details for period {sd} -- {ed}.")
-            # Using multiprocessing only if applicable and number of authors to download is >= number of processes
-            if is_multiprocessing_used and len(authors) >= num_processes:
+            # Using multiprocessing only if applicable and number of authors to download is >= quadratic number of processes
+            if is_multiprocessing_used and len(authors) >= num_processes ** 2:
                 author_details = list([])
                 queue = multiprocessing.Queue()
                 for i, chunk in enumerate(utils.chunk_list(authors, num_processes)):
