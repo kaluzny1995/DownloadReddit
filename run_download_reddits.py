@@ -100,6 +100,7 @@ def save_jsons(jsons: List[Dict[str, Any]], output_folder: str, output_file_patt
 
 def main():
     print("---- Reddits downloader ----\n")
+    logger.info("---- Reddits downloader ----")
 
     config = AppConfig.from_json()
     args = parse_args(config)
@@ -129,6 +130,16 @@ def main():
     print("Use multiprocessing:", is_multiprocessing_used)
     print("Number of processes:", num_processes, "\n")
 
+    logger.info(f"Searched phrase: {phrase}")
+    logger.info(f"Max searched: {limit}")
+    logger.info(f"Date interval: {date_interval}")
+    logger.info(f"Reddits folder: {output_reddits_folder}")
+    logger.info(f"Authors folder: {output_authors_folder}")
+    logger.info(f"Download author details: {is_author_downloaded}")
+    logger.info(f"Search until previous day: {is_date_to_previous_day}")
+    logger.info(f"Use multiprocessing: {is_multiprocessing_used}")
+    logger.info(f"Number of processes: {num_processes}")
+
     # Create folders if not exist
     if not os.path.exists(output_reddits_folder):
         os.makedirs(output_reddits_folder)
@@ -144,6 +155,10 @@ def main():
     print("Load type:", load_type)
     print("Start date:", date_from)
     print("End date:", date_to, "\n")
+
+    logger.info(f"Load type: {load_type}")
+    logger.info(f"Start date: {date_from}")
+    logger.info(f"End date: {date_to}")
 
     if date_from > date_to:
         logger.info("Recent (start) file date is bigger than end date. Nothing to download. Finishing.")
