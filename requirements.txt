@@ -1,0 +1,14 @@
+conda-forge::uv==0.9.13
+conda-forge::beautifulsoup4==4.13.4
+anaconda::colorama==0.4.6
+anaconda::flask==3.1.0
+anaconda::lxml==5.3.0
+conda-forge::markupsafe==3.0.2
+anaconda::pygments==2.19.1
+anaconda::python-dateutil==2.9.0post0
+anaconda::requests==2.32.4
+anaconda::tqdm==4.67.1
+anaconda::urllib3==2.5.0
+conda-forge::websockets==15.0.1
+conda-forge::pytest
+conda-forge::pydantic

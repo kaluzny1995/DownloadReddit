@@ -1,7 +1,7 @@
 import os
 import logging
 import datetime as dt
-from typing import List, Any
+from typing import List, Any, Dict
 
 
 def setup_logger(name, log_file, level=logging.INFO):
@@ -25,8 +25,8 @@ def chunk_list(elements: List[Any], number: int) -> List[List[Any]]:
     return chunks
 
 
-def filter_reddits_by_dates(reddit_jsons: List[dict[str, object]],
-                            start_date: dt.datetime, end_date: dt.datetime = None) -> List[dict[str, object]]:
+def filter_reddits_by_dates(reddit_jsons: List[Dict[str, Any]],
+                            start_date: dt.datetime, end_date: dt.datetime = None) -> List[Dict[str, Any]]:
     """ Filters the provided reddits JSON by provided dates interval """
     return list(filter(lambda rj: end_date > dt.datetime.fromtimestamp(rj['created_utc']) >= start_date, reddit_jsons))
 
@@ -34,11 +34,15 @@ def filter_reddits_by_dates(reddit_jsons: List[dict[str, object]],
 def get_recent_file_date(jsons_folder: str) -> dt.datetime | None:
     """ Returns the latest file date (in order to determine the missing periods for INCREMENTAL load) """
     file_names = os.listdir(jsons_folder)
-    dates = list(sorted(map(lambda j: dt.datetime.fromisoformat(j.split("_")[-1].split(".")[0]), file_names)))
+    dates = list(sorted(map(get_file_date_from_file_name, file_names)))
     return None if len(dates) == 0 else dates[-1]
 
 
-def collect_authors(reddit_jsons: List[dict[str, object | List[dict[str, object]]]]) -> List[str]:
+def get_file_date_from_file_name(file_name: str) -> dt.datetime:
+    return dt.datetime.fromisoformat(file_name.split("_")[-1].split(".")[0])
+
+
+def collect_authors(reddit_jsons: List[Dict[str, Any]]) -> List[str]:
     """ Returns a unique list of all found authors of given reddits and inner subreddits JSON """
     authors = list([])
 

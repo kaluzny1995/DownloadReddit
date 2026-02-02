@@ -1,13 +1,13 @@
 import multiprocessing
 import os
 import argparse
-import json
 import datetime as dt
 from multiprocessing import Queue
 from typing import List, Dict, Any
 from tqdm import tqdm
 
 import utils
+from config import AppConfig
 from yars import YARS, date_range, export_to_json
 
 
@@ -15,35 +15,28 @@ logger = utils.setup_logger(name="download_reddits",
                             log_file=f"logs/download_reddits/download_reddits_{dt.datetime.now().isoformat()}.log")
 
 
-def get_config(file_name: str) -> Dict[str, Any]:
-    """ Returns the default application parameters """
-    with open(file_name, "r") as f:
-        config = json.load(f)
-    return config
-
-
-def parse_args(defaults: Dict[str, Any]) -> argparse.Namespace:
+def parse_args(defaults: AppConfig) -> argparse.Namespace:
     """ Parses command line arguments """
     parser = argparse.ArgumentParser(description="Reddits downloader Python 3.11 application.")
 
     parser.add_argument("phrase", type=str, help="phrase to search for reddits")
-    parser.add_argument("-l", "--limit", type=int, required=False, default=defaults['limit'],
-                        help=f"limit of searched reddits, default: {defaults['limit']}")
-    parser.add_argument("-i", "--interval", type=str, required=False, choices=["h", "d", "m", "y"], default=defaults['interval'],
-                        help=f"interval between dates of searching period, default: {defaults['interval']}")
-    parser.add_argument("-d", "--start_date", type=str, required=False, default=defaults['start_date'],
-                        help=f"start date of reddits search, default: {defaults['start_date']}")
-    parser.add_argument("--download_authors", required=False, default=defaults['is_author_downloaded'],
-                        help=f"flag whether to download reddit authors information, default: {defaults['is_author_downloaded']}",
+    parser.add_argument("-l", "--limit", type=int, required=False, default=defaults.limit,
+                        help=f"limit of searched reddits, default: {defaults.limit}")
+    parser.add_argument("-i", "--interval", type=str, required=False, choices=["h", "d", "m", "y"], default=defaults.interval,
+                        help=f"interval between dates of searching period, default: {defaults.interval}")
+    parser.add_argument("-d", "--start_date", type=str, required=False, default=defaults.start_date,
+                        help=f"start date of reddits search, default: {defaults.start_date}")
+    parser.add_argument("--download_authors", required=False, default=defaults.is_author_downloaded,
+                        help=f"flag whether to download reddit authors information, default: {defaults.is_author_downloaded}",
                         action="store_true")
-    parser.add_argument("--previous_day", required=False, default=defaults['is_date_to_previous_day'],
-                        help=f"flag whether to download reddits till the previous day, default: {defaults['is_date_to_previous_day']}",
+    parser.add_argument("--previous_day", required=False, default=defaults.is_date_to_previous_day,
+                        help=f"flag whether to download reddits till the previous day, default: {defaults.is_date_to_previous_day}",
                         action="store_true")
-    parser.add_argument("--use_multiprocessing", required=False, default=defaults['is_multiprocessing_used'],
-                        help=f"flag whether to use multiprocessing while downlading reddits and authors, default: {defaults['is_multiprocessing_used']}",
+    parser.add_argument("--use_multiprocessing", required=False, default=defaults.is_multiprocessing_used,
+                        help=f"flag whether to use multiprocessing while downlading reddits and authors, default: {defaults.is_multiprocessing_used}",
                         action="store_true")
-    parser.add_argument("--num_processes", type=int, required=False, default=defaults['num_processes'],
-                        help=f"number of processes if multiprocessing is used, default: {defaults['num_processes']}")
+    parser.add_argument("--num_processes", type=int, required=False, default=defaults.num_processes,
+                        help=f"number of processes if multiprocessing is used, default: {defaults.num_processes}")
 
     return parser.parse_args()
 
@@ -107,8 +100,9 @@ def save_jsons(jsons: List[Dict[str, Any]], output_folder: str, output_file_patt
 
 def main():
     print("---- Reddits downloader ----\n")
+    logger.info("---- Reddits downloader ----")
 
-    config = get_config("config.json")
+    config = AppConfig.from_json()
     args = parse_args(config)
 
     phrase = args.phrase
@@ -120,11 +114,10 @@ def main():
     is_multiprocessing_used = args.use_multiprocessing
     num_processes = 1 if not is_multiprocessing_used else args.num_processes
 
-    website_url = config['website_url']
-    output_reddits_folder = config['reddits_folder_pattern'].format(phrase=phrase)
-    output_authors_folder = config['authors_folder_pattern'].format(phrase=phrase)
-    output_reddits_file_pattern = config['reddits_file_pattern'].format(phrase=phrase)
-    output_authors_file_pattern = config['authors_file_pattern'].format(phrase=phrase)
+    output_reddits_folder = config.reddits_folder_pattern.format(phrase=phrase)
+    output_authors_folder = config.authors_folder_pattern.format(phrase=phrase)
+    output_reddits_file_pattern = config.reddits_file_pattern.format(phrase=phrase)
+    output_authors_file_pattern = config.authors_file_pattern.format(phrase=phrase)
 
     # Show parameters
     print("Searched phrase:", phrase)
@@ -136,6 +129,16 @@ def main():
     print("Search until previous day:", is_date_to_previous_day)
     print("Use multiprocessing:", is_multiprocessing_used)
     print("Number of processes:", num_processes, "\n")
+
+    logger.info(f"Searched phrase: {phrase}")
+    logger.info(f"Max searched: {limit}")
+    logger.info(f"Date interval: {date_interval}")
+    logger.info(f"Reddits folder: {output_reddits_folder}")
+    logger.info(f"Authors folder: {output_authors_folder}")
+    logger.info(f"Download author details: {is_author_downloaded}")
+    logger.info(f"Search until previous day: {is_date_to_previous_day}")
+    logger.info(f"Use multiprocessing: {is_multiprocessing_used}")
+    logger.info(f"Number of processes: {num_processes}")
 
     # Create folders if not exist
     if not os.path.exists(output_reddits_folder):
@@ -153,6 +156,10 @@ def main():
     print("Start date:", date_from)
     print("End date:", date_to, "\n")
 
+    logger.info(f"Load type: {load_type}")
+    logger.info(f"Start date: {date_from}")
+    logger.info(f"End date: {date_to}")
+
     if date_from > date_to:
         logger.info("Recent (start) file date is bigger than end date. Nothing to download. Finishing.")
         raise Exception("Recent (start) file date is bigger than end date. Nothing to download.")
@@ -169,7 +176,7 @@ def main():
         reddit_headers = list(filter(lambda rh: date_to > dt.datetime.fromtimestamp(rh['created_utc']) >= date_from, reddit_headers))
 
     # Getting posts details
-    permalinks = list(map(lambda rh: rh['link'].split(website_url)[1], reddit_headers))
+    permalinks = list(map(lambda rh: rh['link'].split(config.website_url)[1], reddit_headers))
     print(f"Found {len(permalinks)} results.")
     logger.info(f"Found {len(permalinks)} results.")
 
