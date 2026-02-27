@@ -19,7 +19,7 @@ Running the help command: `python run_download_reddits.py -h` yields the followi
 ```
 ---- Reddits downloader ----
 
-usage: run_download_reddits.py [-h] [-l LIMIT] [-i {h,d,m,y}] [-d START_DATE] [--download_authors] [--previous_day] [--use_multiprocessing] [--num_processes NUM_PROCESSES] phrase
+usage: run_download_reddits.py [-h] [-l LIMIT] [-i {h,d,m,y}] [-d START_DATE] [--no_authors_download] [--include_today] [--no_multiprocessing] [--num_processes NUM_PROCESSES] phrase
 
 Reddits downloader Python 3.11 application.
 
@@ -34,10 +34,10 @@ options:
                         interval between dates of searching period, default: d
   -d START_DATE, --start_date START_DATE
                         start date of reddits search, default: 2020-01-01
-  --download_authors    flag whether to download reddit authors information, default: False
-  --previous_day        flag whether to download reddits till the previous day, default: False
-  --use_multiprocessing
-                        flag whether to use multiprocessing while downlading reddits and authors, default: False
+  --no_authors_download
+                        flag whether to skip reddit authors information downloading, default: False
+  --include_today       flag whether to download reddits until the current datetime, ie. moment of script launch, default: False
+  --no_multiprocessing  flag whether not to use multiprocessing while downloading reddits and authors, default: False
   --num_processes NUM_PROCESSES
                         number of processes if multiprocessing is used, default: 8
 
@@ -45,32 +45,36 @@ options:
 The application searches reddits by provided _phrase_ and stores found results in separate JSON files.
 
 ### Parameters overview
-1. **phrase** -- _required_ -- word or sentence fragment the downloaded reddit texts or titles should contain
+1. **phrase** -- **_required_** -- word or sentence fragment the downloaded reddit texts or titles should contain
 2. **-l, --limit** -- _optional_ -- **10000** by default -- max number of returned results
 3. **-i, --interval** -- _optional_ -- **"d"** by default -- period of time (between two date times) from which the searched results are: _"y"_ denotes year, _"m"_ - month, _"d"_ - day and _"h"_ - hour. The downloaded results are saved into separate JSON files for separate periods. For example with 'y' (year) interval a result with date time of creation _2021-03-21T09:12:54_ with be stored in `reddits_phrase_2021-01-01T00:00:00_2022-01-01T00:00:00.json` file.
 4. **-s, --start_date** -- _optional_ -- **"2020-01-01"** by default -- earliest date time of reddits searching
-5. **--download_authors** -- _optional_ -- **False** by default -- flag whether to download authors data. If unset the application will not perform any authors data downloading and saving them into JSON files
-6. **--previous_day** -- _optional_ -- **False** by default -- flag whether to set up the latest date time of downloaded reddits to the end of previous day. For example if the downloading started on _2021-09-02T03:00:00_ then the latest result date would be _2021-09-01T23:59:59_
-7. **--use_multiprocessing** -- _optional_ -- **False** by default -- flag whether to utilize multiprocess approach for results downloading. If set up the application will divide the list of reddit permalinks to download them from to separate processes. For 2xQuadCore processors the number should not be larger than 8
-8. **--num_processes** -- _optional_ -- **8** -- number of processes for multiprocess approach, not applicable if _use multiprcessing_ flag is unset
+5. **--no_authors_download** -- _optional_ -- **False** by default -- flag whether to skip authors data downloading. If set the application will perform authors data downloading and save them into JSON files
+6. **--include_today** -- _optional_ -- **False** by default -- flag whether to set up the latest datetime of downloaded reddits to the current datetime (i.e. moment of script launch). If unset then the latest datetime would be set to the end of the previous day. For example if the downloading started on _2021-09-02T03:00:00_ then the latest result date would be _2021-09-01T23:59:59_
+7. **--no_multiprocessing** -- _optional_ -- **False** by default -- flag whether not to utilize multiprocess approach for results downloading. Unless set the application will divide the list of reddit permalinks to download them from to separate processes. Otherwise, everything will be downloaded on one process taking longer time
+8. **--num_processes** -- _optional_ -- **8** -- number of processes for multiprocess approach, not applicable if the _use_multiprocessing_ flag is unset. **IMPORTANT:** For 2xQuadCore processors the number should not be larger than 8
 
 ### Command examples
 
 #### Simple
     python run_download_reddits.py "corgi"
-The application will download all reddits having "corgi" word inside without authors info store the results in separate JSON files for separate days.
+The application will download all reddits having "corgi" word inside with authors info and store the results in separate JSON files for separate days.
 
 #### Year interval and 2022-01-01 start date
     python run_download_reddits.py "corgi" -i="y" -s="2022-01-01"
-The application will download "corgi" reddits which are not older than 1st of January 2022 and store the result in separate JSON file for separate year (instead of day)
+The application will download "corgi" reddits which are not older than 1st of January 2022 and store the result in separate JSON file for separate year (instead of day).
 
-#### Downloading authors
-    python run_download_reddits.py "corgi" --download_authors
-The application will download not only all "corgi" reddits but also information about reddit authors and store the results into JSON files separate for reddits and authors
+#### End date until the launch time
+    python run_download_reddits.py "corgi" --include_today
+The application will download "corgi" reddits and authors info including these entries which were created on the day of script launch until the moment of script running (i.e. instead of the latest time of previous day, _23:59:59_ or _11:59:59 pm._).
 
-#### Multiprocesssing
-    python run_download_reddits.py "corgi" --download_authors --use_multiprocessing
-The application will download the "corgi" reddit and information about author however using multiprocess approach
+#### No authors downloading
+    python run_download_reddits.py "corgi" --no_authors_download
+The application will download "corgi" reddits however without information about reddit authors.
+
+#### No multiprocesssing
+    python run_download_reddits.py "corgi" --no_multiprocessing
+The application will download the "corgi" reddit and information about author however without using multiprocess approach.
 
 ### Testing
 To perform application unit testing simply run the command `pytest` in main project directory. The output should look like the following:

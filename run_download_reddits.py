@@ -26,14 +26,14 @@ def parse_args(defaults: AppConfig) -> argparse.Namespace:
                         help=f"interval between dates of searching period, default: {defaults.interval}")
     parser.add_argument("-d", "--start_date", type=str, required=False, default=defaults.start_date,
                         help=f"start date of reddits search, default: {defaults.start_date}")
-    parser.add_argument("--download_authors", required=False, default=defaults.is_author_downloaded,
-                        help=f"flag whether to download reddit authors information, default: {defaults.is_author_downloaded}",
+    parser.add_argument("--no_authors_download", required=False, default=defaults.is_no_authors_download,
+                        help=f"flag whether to skip reddit authors information downloading, default: {defaults.is_no_authors_download}",
                         action="store_true")
-    parser.add_argument("--previous_day", required=False, default=defaults.is_date_to_previous_day,
-                        help=f"flag whether to download reddits till the previous day, default: {defaults.is_date_to_previous_day}",
+    parser.add_argument("--include_today", required=False, default=defaults.is_today_included,
+                        help=f"flag whether to download reddits until the current datetime, ie. moment of script launch, default: {defaults.is_today_included}",
                         action="store_true")
-    parser.add_argument("--use_multiprocessing", required=False, default=defaults.is_multiprocessing_used,
-                        help=f"flag whether to use multiprocessing while downlading reddits and authors, default: {defaults.is_multiprocessing_used}",
+    parser.add_argument("--no_multiprocessing", required=False, default=defaults.is_no_multiprocessing_used,
+                        help=f"flag whether not to use multiprocessing while downloading reddits and authors, default: {defaults.is_no_multiprocessing_used}",
                         action="store_true")
     parser.add_argument("--num_processes", type=int, required=False, default=defaults.num_processes,
                         help=f"number of processes if multiprocessing is used, default: {defaults.num_processes}")
@@ -109,9 +109,9 @@ def main():
     limit = args.limit
     date_interval = args.interval
     default_start_date = dt.datetime.strptime(args.start_date, "%Y-%m-%d")
-    is_author_downloaded = args.download_authors
-    is_date_to_previous_day = args.previous_day
-    is_multiprocessing_used = args.use_multiprocessing
+    is_author_downloaded = not args.no_authors_download
+    is_date_to_previous_day = not args.include_today
+    is_multiprocessing_used = not args.no_multiprocessing
     num_processes = 1 if not is_multiprocessing_used else args.num_processes
 
     output_reddits_folder = config.reddits_folder_pattern.format(phrase=phrase)

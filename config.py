@@ -12,9 +12,9 @@ class AppConfig(BaseModel):
     authors_folder_pattern: str
     reddits_file_pattern: str
     authors_file_pattern: str
-    is_author_downloaded: bool
-    is_date_to_previous_day: bool
-    is_multiprocessing_used: bool
+    is_no_authors_download: bool
+    is_today_included: bool
+    is_no_multiprocessing_used: bool
     num_processes: int
 
     class Config:
