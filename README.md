@@ -52,13 +52,13 @@ The application searches reddits by provided _phrase_ and stores found results i
 5. **--no_authors_download** -- _optional_ -- **False** by default -- flag whether to skip authors data downloading. If set the application will perform authors data downloading and save them into JSON files
 6. **--include_today** -- _optional_ -- **False** by default -- flag whether to set up the latest datetime of downloaded reddits to the current datetime (i.e. moment of script launch). If unset then the latest datetime would be set to the end of the previous day. For example if the downloading started on _2021-09-02T03:00:00_ then the latest result date would be _2021-09-01T23:59:59_
 7. **--no_multiprocessing** -- _optional_ -- **False** by default -- flag whether not to utilize multiprocess approach for results downloading. Unless set the application will divide the list of reddit permalinks to download them from to separate processes. Otherwise, everything will be downloaded on one process taking longer time
-8. **--num_processes** -- _optional_ -- **8** -- number of processes for multiprocess approach, not applicable if the _use_multiprocessing_ flag is unset. **IMPORTANT:** For 2xQuadCore processors the number should not be larger than 8
+8. **--num_processes** -- _optional_ -- **8** -- number of processes for multiprocess approach, not applicable if the _no_multiprocessing_ flag is set. **IMPORTANT:** For 2xQuadCore processors the number should not be larger than 8
 
 ### Command examples
 
 #### Simple
     python run_download_reddits.py "corgi"
-The application will download all reddits having "corgi" word inside with authors info and store the results in separate JSON files for separate days.
+The application will download all reddits having "corgi" word inside with authors info and store the results in separate JSON files for separate days. The solution will utilize multiprocessing approach.
 
 #### Year interval and 2022-01-01 start date
     python run_download_reddits.py "corgi" -i="y" -s="2022-01-01"
