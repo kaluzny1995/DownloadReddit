@@ -1,18 +1,18 @@
 import multiprocessing
 import os
+import logging
 import argparse
 import datetime as dt
 from multiprocessing import Queue
-from typing import List, Dict, Any
+from typing import List
 from tqdm import tqdm
 
-import utils
+import util
+import yars
 from config import AppConfig
-from yars import YARS, date_range, export_to_json
-
-
-logger = utils.setup_logger(name="download_reddits",
-                            log_file=f"logs/download_reddits/download_reddits_{dt.datetime.now().isoformat()}.log")
+from download_params import DownloadParams
+from e_load_type import EloadType
+from load_params import LoadParams
 
 
 def parse_args(defaults: AppConfig) -> argparse.Namespace:
@@ -41,7 +41,49 @@ def parse_args(defaults: AppConfig) -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _download_reddits_details(downloader: YARS, permalinks: List[str], num: int, queue: Queue) -> None:
+def show_params(download_params: DownloadParams, logger: logging.Logger) -> None:
+    """ Shows the parameters and its values """
+    print("Searched phrase:", download_params.phrase)
+    print("Max searched:", download_params.limit)
+    print("Date interval:", download_params.date_interval)
+    print("Reddits folder:", download_params.output_reddits_folder)
+    print("Authors folder:", download_params.output_authors_folder)
+    print("Download author details:", download_params.is_author_downloaded)
+    print("Search until previous day:", download_params.is_date_to_previous_day)
+    print("Use multiprocessing:", download_params.is_multiprocessing_used)
+    print("Number of processes:", download_params.num_processes, "\n")
+
+    logger.info(f"Searched phrase: {download_params.phrase}")
+    logger.info(f"Max searched: {download_params.limit}")
+    logger.info(f"Date interval: {download_params.date_interval}")
+    logger.info(f"Reddits folder: {download_params.output_reddits_folder}")
+    logger.info(f"Authors folder: {download_params.output_authors_folder}")
+    logger.info(f"Download author details: {download_params.is_author_downloaded}")
+    logger.info(f"Search until previous day: {download_params.is_date_to_previous_day}")
+    logger.info(f"Use multiprocessing: {download_params.is_multiprocessing_used}")
+    logger.info(f"Number of processes: {download_params.num_processes}")
+
+
+def create_folders(download_params: DownloadParams):
+    """ Creates folders for JSONs if not exist """
+    if not os.path.exists(download_params.output_reddits_folder):
+        os.makedirs(download_params.output_reddits_folder)
+    if not os.path.exists(download_params.output_authors_folder):
+        os.makedirs(download_params.output_authors_folder)
+
+
+def show_load_params(load_params: LoadParams, logger: logging.Logger):
+    print("Load type:", load_params.load_type)
+    print("Start date:", load_params.date_from)
+    print("End date:", load_params.date_to, "\n")
+
+    logger.info(f"Load type: {load_params.load_type}")
+    logger.info(f"Start date: {load_params.date_from}")
+    logger.info(f"End date: {load_params.date_to}")
+
+
+def _download_reddits_details(downloader: yars.YARS, permalinks: List[str], num: int,
+                              queue: Queue, logger: logging.Logger) -> None:
     """ Partially downloads reddits details (utilizes multiprocessing) """
     print(f"P{num + 1}: Starting downloading reddits details.")
     logger.info(f"P{num + 1}: Starting downloading reddits details.")
@@ -65,7 +107,8 @@ def _download_reddits_details(downloader: YARS, permalinks: List[str], num: int,
     queue.put((details, num))
 
 
-def _download_authors_details(downloader: YARS, names: List[str], num: int, queue: Queue) -> None:
+def _download_authors_details(downloader: yars.YARS, names: List[str], num: int,
+                              queue: Queue, logger: logging.Logger) -> None:
     """ Partially downloads authors details (utilizes multiprocessing) """
     print(f"P{num + 1}: Starting downloading authors details.")
     logger.info(f"P{num + 1}: Starting downloading authors details.")
@@ -89,91 +132,62 @@ def _download_authors_details(downloader: YARS, names: List[str], num: int, queu
     queue.put((details, num))
 
 
-def save_jsons(jsons: List[Dict[str, Any]], output_folder: str, output_file_pattern: str,
-               start_date: dt.datetime, end_date: dt.datetime) -> None:
-    output_file = output_file_pattern.format(start_date=start_date.isoformat(), end_date=end_date.isoformat())
-    output_json_file = f"{output_folder}/{output_file}"
-    export_to_json(jsons, filename=output_json_file, logger=logger)
-    print(f"File {output_json_file} saved.")
-    logger.info(f"File {output_json_file} saved.")
-
-
 def main():
-    print("---- Reddits downloader ----\n")
-    logger.info("---- Reddits downloader ----")
-
     config = AppConfig.from_json()
     args = parse_args(config)
 
-    phrase = args.phrase
-    limit = args.limit
-    date_interval = args.interval
-    default_start_date = dt.datetime.strptime(args.start_date, "%Y-%m-%d")
-    is_author_downloaded = not args.no_authors_download
-    is_date_to_previous_day = not args.include_today
-    is_multiprocessing_used = not args.no_multiprocessing
-    num_processes = 1 if not is_multiprocessing_used else args.num_processes
+    logger = util.setup_logger(name=f"download_reddits_{args.phrase}",
+                               log_file=f"logs/download_reddits/download_reddits_{args.phrase}_{dt.datetime.now().isoformat()}.log")
 
-    output_reddits_folder = config.reddits_folder_pattern.format(phrase=phrase)
-    output_authors_folder = config.authors_folder_pattern.format(phrase=phrase)
-    output_reddits_file_pattern = config.reddits_file_pattern.format(phrase=phrase)
-    output_authors_file_pattern = config.authors_file_pattern.format(phrase=phrase)
+    print("---- Reddits downloader app ----\n")
+    logger.info("---- Reddits downloader app ----")
+
+    download_params = DownloadParams.from_argparse_namespace_and_config(args, config)
+
+    #phrase = args.phrase
+    #limit = args.limit
+    #date_interval = args.interval
+    #default_start_date = dt.datetime.strptime(args.start_date, "%Y-%m-%d")
+    #is_author_downloaded = not args.no_authors_download
+    #is_date_to_previous_day = not args.include_today
+    #is_multiprocessing_used = not args.no_multiprocessing
+    #num_processes = 1 if not is_multiprocessing_used else args.num_processes
+    #
+    #output_reddits_folder = config.reddits_folder_pattern.format(phrase=phrase)
+    #output_authors_folder = config.authors_folder_pattern.format(phrase=phrase)
+    #output_reddits_file_pattern = config.reddits_file_pattern.format(phrase=phrase)
+    #output_authors_file_pattern = config.authors_file_pattern.format(phrase=phrase)
 
     # Show parameters
-    print("Searched phrase:", phrase)
-    print("Max searched:", limit)
-    print("Date interval:", date_interval)
-    print("Reddits folder:", output_reddits_folder)
-    print("Authors folder:", output_authors_folder)
-    print("Download author details:", is_author_downloaded)
-    print("Search until previous day:", is_date_to_previous_day)
-    print("Use multiprocessing:", is_multiprocessing_used)
-    print("Number of processes:", num_processes, "\n")
-
-    logger.info(f"Searched phrase: {phrase}")
-    logger.info(f"Max searched: {limit}")
-    logger.info(f"Date interval: {date_interval}")
-    logger.info(f"Reddits folder: {output_reddits_folder}")
-    logger.info(f"Authors folder: {output_authors_folder}")
-    logger.info(f"Download author details: {is_author_downloaded}")
-    logger.info(f"Search until previous day: {is_date_to_previous_day}")
-    logger.info(f"Use multiprocessing: {is_multiprocessing_used}")
-    logger.info(f"Number of processes: {num_processes}")
+    show_params(download_params, logger=logger)
 
     # Create folders if not exist
-    if not os.path.exists(output_reddits_folder):
-        os.makedirs(output_reddits_folder)
-    if not os.path.exists(output_authors_folder):
-        os.makedirs(output_authors_folder)
+    create_folders(download_params)
 
-    recent_date = utils.get_recent_file_date(output_reddits_folder)
-    load_type = "HISTORICAL" if recent_date is None else "INCREMENTAL"
-    date_from = default_start_date if recent_date is None else recent_date
-    date_to = dt.datetime.now() if not is_date_to_previous_day \
-        else dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - dt.timedelta(seconds=1)
+    #recent_date = util.get_recent_file_date(download_params.output_reddits_folder)
+    #load_type = EloadType.HISTORICAL if recent_date is None else EloadType.INCREMENTAL
+    #date_from = download_params.default_start_date if recent_date is None else recent_date
+    #date_to = dt.datetime.now() if not download_params.is_date_to_previous_day \
+    #    else dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - dt.timedelta(seconds=1)
+    load_params = LoadParams.from_download_params(download_params)
 
-    print("Load type:", load_type)
-    print("Start date:", date_from)
-    print("End date:", date_to, "\n")
+    # Show load params
+    show_load_params(load_params, logger=logger)
 
-    logger.info(f"Load type: {load_type}")
-    logger.info(f"Start date: {date_from}")
-    logger.info(f"End date: {date_to}")
-
-    if date_from > date_to:
+    if load_params.date_from > load_params.date_to:
         logger.info("Recent (start) file date is bigger than end date. Nothing to download. Finishing.")
         raise Exception("Recent (start) file date is bigger than end date. Nothing to download.")
 
-    downloader = YARS()
+    downloader = yars.YARS(logger=logger)
 
     # Getting posts headers
-    print(f"Searching reddits with phrase '{phrase}'.\n")
-    logger.info(f"Searching reddits with phrase '{phrase}'.")
-    reddit_headers = downloader.search_reddit(query=phrase, limit=limit)
+    print(f"Searching reddits with phrase '{download_params.phrase}'.\n")
+    logger.info(f"Searching reddits with phrase '{download_params.phrase}'.")
+    reddit_headers = downloader.search_reddit(query=download_params.phrase, limit=download_params.limit)
 
     # Restriction to the newest only for INCREMENTAL load
-    if load_type == "INCREMENTAL":
-        reddit_headers = list(filter(lambda rh: date_to > dt.datetime.fromtimestamp(rh['created_utc']) >= date_from, reddit_headers))
+    if load_params.load_type == EloadType.INCREMENTAL:
+        reddit_headers = list(filter(lambda rh: load_params.date_to > dt.datetime.fromtimestamp(rh['created_utc']) >= load_params.date_from, reddit_headers))
 
     # Getting posts details
     permalinks = list(map(lambda rh: rh['link'].split(config.website_url)[1], reddit_headers))
@@ -183,14 +197,14 @@ def main():
     print("Downloading reddits.")
     logger.info("Downloading reddits.")
     # Using multiprocessing only if applicable and number of reddits to download is >= quadratic number of processes
-    if is_multiprocessing_used and len(permalinks) >= num_processes ** 2:
+    if download_params.is_multiprocessing_used and len(permalinks) >= download_params.num_processes ** 2:
         reddit_details = list([])
         queue = multiprocessing.Queue()
-        for i, chunk in enumerate(utils.chunk_list(permalinks, num_processes)):
-            p = multiprocessing.Process(target=_download_reddits_details, args=(downloader, chunk, i, queue))
+        for i, chunk in enumerate(util.chunk_list(permalinks, download_params.num_processes)):
+            p = multiprocessing.Process(target=_download_reddits_details, args=(downloader, chunk, i, queue, logger))
             p.start()
 
-        for i in range(num_processes):
+        for i in range(download_params.num_processes):
             results, num = queue.get()
             if isinstance(results, list):
                 reddit_details.extend(results)
@@ -202,30 +216,32 @@ def main():
 
 
     # Saving into separate JSONs
-    for sd, ed in date_range(date_from, date_to, interval=date_interval):
+    for sd, ed in util.date_range(load_params.date_from, load_params.date_to, interval=download_params.date_interval):
         # Filtering reddits details by dates interval
-        reddits_interval = utils.filter_reddits_by_dates(reddit_details, sd, ed)
+        reddits_interval = util.filter_reddits_by_dates(reddit_details, sd, ed)
 
         # Saving reddits details into JSON file
-        save_jsons(reddits_interval, output_reddits_folder, output_reddits_file_pattern, sd, ed)
+        util.save_jsons(reddits_interval,
+                        download_params.output_reddits_folder, download_params.output_reddits_file_pattern,
+                        sd, ed, logger=logger)
 
-        if is_author_downloaded:
+        if download_params.is_author_downloaded:
             # Getting posts authors
-            authors = utils.collect_authors(reddits_interval)
+            authors = util.collect_authors(reddits_interval)
 
             print(f"\nFound {len(authors)} different authors for period {sd} -- {ed}.")
             logger.info(f"Found {len(authors)} different authors for period {sd} -- {ed}.")
             print(f"Downloading authors details for period {sd} -- {ed}.")
             logger.info(f"Downloading authors details for period {sd} -- {ed}.")
             # Using multiprocessing only if applicable and number of authors to download is >= quadratic number of processes
-            if is_multiprocessing_used and len(authors) >= num_processes ** 2:
+            if download_params.is_multiprocessing_used and len(authors) >= download_params.num_processes ** 2:
                 author_details = list([])
                 queue = multiprocessing.Queue()
-                for i, chunk in enumerate(utils.chunk_list(authors, num_processes)):
-                    p = multiprocessing.Process(target=_download_authors_details, args=(downloader, chunk, i, queue))
+                for i, chunk in enumerate(util.chunk_list(authors, download_params.num_processes)):
+                    p = multiprocessing.Process(target=_download_authors_details, args=(downloader, chunk, i, queue, logger))
                     p.start()
 
-                for i in range(num_processes):
+                for i in range(download_params.num_processes):
                     results, num = queue.get()
                     if isinstance(results, list):
                         author_details.extend(results)
@@ -236,7 +252,9 @@ def main():
             logger.info(f"Downloading authors details for period {sd} -- {ed} finished.")
 
             # Saving authors details into JSON file
-            save_jsons(author_details, output_authors_folder, output_authors_file_pattern, sd, ed)
+            util.save_jsons(author_details,
+                            download_params.output_authors_folder, download_params.output_authors_file_pattern,
+                            sd, ed, logger=logger)
 
     print("\nDone.")
     logger.info("Done.")

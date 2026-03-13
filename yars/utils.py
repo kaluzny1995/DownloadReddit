@@ -4,11 +4,10 @@ import json
 
 import requests
 import datetime as dt
-from dateutil.relativedelta import relativedelta
 from urllib.parse import urlparse
 from pygments import formatters, highlight, lexers
 
-from utils import setup_logger
+from util import setup_logger
 
 
 def display_results(results, title, logger=None):
@@ -78,39 +77,6 @@ def download_image(image_url, output_folder="images", session=None, logger=None)
     except Exception as e:
         logger.error("An error occurred while saving the image: %s", e)
         return None
-
-
-def date_range(start_date, end_date=None, interval="d"):
-    if end_date is None:
-        end_date = dt.datetime.now()
-
-    if interval == "h":
-        sd = start_date.replace(minute=0, second=0)
-        ed = end_date.replace(minute=0, second=0)
-        for i in range(int((ed - sd).total_seconds()//3600) + 1):
-            date = sd + dt.timedelta(hours=i)
-            yield date, sd + dt.timedelta(hours=i+1)
-    elif interval == "d":
-        sd = start_date.replace(hour=0, minute=0, second=0)
-        ed = end_date.replace(hour=0, minute=0, second=0)
-        for i in range((ed - sd).days + 1):
-            date = sd + dt.timedelta(days=i)
-            yield date, sd + dt.timedelta(days=i+1)
-    elif interval == "m":
-        sd = start_date.replace(day=1, hour=0, minute=0, second=0)
-        ed = end_date.replace(day=1, hour=0, minute=0, second=0)
-        for i in range((ed.year - sd.year) * 12 + (ed.month - sd.month) + 1):
-            date = sd + relativedelta(months=i)
-            yield date, sd + relativedelta(months=i+1)
-    elif interval == "y":
-        sd = start_date.replace(month=1, day=1, hour=0, minute=0, second=0)
-        ed = end_date.replace(month=1, day=1, hour=0, minute=0, second=0)
-        for i in range(ed.year - sd.year + 1):
-            date = sd + relativedelta(years=i)
-            yield date, sd + relativedelta(years=i+1)
-    else:
-        raise ValueError(f"Unknown interval '{interval}'. Should be 'h', 'd', 'm' or 'y'.")
-
 
 
 def export_to_json(data, filename="output.json", logger=None):
