@@ -2,7 +2,7 @@ import argparse
 import datetime as dt
 from pydantic import BaseModel
 
-from config import AppConfig
+from model import AppConfig
 
 
 class DownloadParams(BaseModel):

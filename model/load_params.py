@@ -2,8 +2,7 @@ import datetime as dt
 from pydantic import BaseModel
 
 import util
-from download_params import DownloadParams
-from e_load_type import EloadType
+from model import EloadType, DownloadParams
 
 
 class LoadParams(BaseModel):

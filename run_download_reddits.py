@@ -9,10 +9,7 @@ from tqdm import tqdm
 
 import util
 import yars
-from config import AppConfig
-from download_params import DownloadParams
-from e_load_type import EloadType
-from load_params import LoadParams
+from model import EloadType, AppConfig, DownloadParams, LoadParams
 
 
 def parse_args(defaults: AppConfig) -> argparse.Namespace:
@@ -73,11 +70,11 @@ def create_folders(download_params: DownloadParams):
 
 
 def show_load_params(load_params: LoadParams, logger: logging.Logger):
-    print("Load type:", load_params.load_type)
+    print("Load type:", load_params.load_type.value)
     print("Start date:", load_params.date_from)
     print("End date:", load_params.date_to, "\n")
 
-    logger.info(f"Load type: {load_params.load_type}")
+    logger.info(f"Load type: {load_params.load_type.value}")
     logger.info(f"Start date: {load_params.date_from}")
     logger.info(f"End date: {load_params.date_to}")
 
@@ -144,31 +141,12 @@ def main():
 
     download_params = DownloadParams.from_argparse_namespace_and_config(args, config)
 
-    #phrase = args.phrase
-    #limit = args.limit
-    #date_interval = args.interval
-    #default_start_date = dt.datetime.strptime(args.start_date, "%Y-%m-%d")
-    #is_author_downloaded = not args.no_authors_download
-    #is_date_to_previous_day = not args.include_today
-    #is_multiprocessing_used = not args.no_multiprocessing
-    #num_processes = 1 if not is_multiprocessing_used else args.num_processes
-    #
-    #output_reddits_folder = config.reddits_folder_pattern.format(phrase=phrase)
-    #output_authors_folder = config.authors_folder_pattern.format(phrase=phrase)
-    #output_reddits_file_pattern = config.reddits_file_pattern.format(phrase=phrase)
-    #output_authors_file_pattern = config.authors_file_pattern.format(phrase=phrase)
-
     # Show parameters
     show_params(download_params, logger=logger)
 
     # Create folders if not exist
     create_folders(download_params)
 
-    #recent_date = util.get_recent_file_date(download_params.output_reddits_folder)
-    #load_type = EloadType.HISTORICAL if recent_date is None else EloadType.INCREMENTAL
-    #date_from = download_params.default_start_date if recent_date is None else recent_date
-    #date_to = dt.datetime.now() if not download_params.is_date_to_previous_day \
-    #    else dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - dt.timedelta(seconds=1)
     load_params = LoadParams.from_download_params(download_params)
 
     # Show load params
