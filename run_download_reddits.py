@@ -133,8 +133,11 @@ def main():
     config = AppConfig.from_json()
     args = parse_args(config)
 
-    logger = util.setup_logger(name=f"download_reddits_{args.phrase}",
-                               log_file=f"logs/download_reddits/download_reddits_{args.phrase}_{dt.datetime.now().isoformat()}.log")
+    logger = util.setup_logger(name=f"download_{args.phrase}",
+                               log_file=f"logs/download/{args.phrase}/download_{args.phrase}_{dt.datetime.now().isoformat()}.log")
+
+    yars_logger = util.setup_logger(name=f"yars_{args.phrase}",
+                                    log_file=f"logs/yars/{args.phrase}/yars_{args.phrase}_{dt.datetime.now().isoformat()}.log")
 
     print("---- Reddits downloader app ----\n")
     logger.info("---- Reddits downloader app ----")
@@ -156,7 +159,7 @@ def main():
         logger.info("Recent (start) file date is bigger than end date. Nothing to download. Finishing.")
         raise Exception("Recent (start) file date is bigger than end date. Nothing to download.")
 
-    downloader = yars.YARS(logger=logger)
+    downloader = yars.YARS(logger=yars_logger)
 
     # Getting posts headers
     print(f"Searching reddits with phrase '{download_params.phrase}'.\n")
